@@ -1,0 +1,31 @@
+{
+  "name": "frontend",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "ui react-module test",
+    "dev": "ui react-module dev",
+    "storybook": "ui react-module storybook",
+    "build:app": "ui react-module build:app",
+    "build:lib": "ui react-module build:lib",
+    "build:storybook": "ui react-module build:storybook",
+    "test:watch": "ui react-module test:watch",
+    "lint": "ui react-module lint"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@blueprintjs/core": "^3.15.1",
+    "@blueprintjs/select": "^3.8.0",
+    "@ocd-ui/react-module": "^0.2.10",
+    "d3": "^5.9.2",
+    "deck.gl": "^7.3.6",
+    "react-spring": "^8.0.27",
+    "react-swipeable-views": "^0.13.3",
+    "react-use-gesture": "^6.0.14",
+    "tachyons": "^4.11.1"
+  },
+  "devDependencies": {}
+}
