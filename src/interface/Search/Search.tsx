@@ -4,6 +4,7 @@ import { useContext } from 'react'
 import { Context, setSelection } from 'app/store'
 import { Button, Card, MenuItem, Position, Elevation } from '@blueprintjs/core'
 import { Suggest } from '@blueprintjs/select'
+import Colors from 'app/colors'
 
 const Select = Suggest.ofType()
 
@@ -11,7 +12,11 @@ const itemRenderer = (option, { handleClick, modifiers, query }) =>
   modifiers.matchesPredicate && (
     <MenuItem
       key={option.value}
-      active={modifiers.active}
+      style={{
+        background: modifiers.active && Colors.active,
+        color: Colors.foreground
+      }}
+      // active={modifiers.active}
       onClick={handleClick}
       text={option.label}
     />
@@ -31,7 +36,9 @@ const ClearButton = ({ onClick }) => (
 const Search = () => {
   const [{ selection, data }, dispatch] = useContext(Context)
   const options = data.map(({ name }) => ({ label: name, value: name }))
-  const selectedItem = null
+  const selectedItem = selection.length
+    ? options.find(({ value }) => value === selection[0].name)
+    : null
 
   const handleSelect = (selection) => dispatch(setSelection([selection.value]))
   const handleDeselect = () => dispatch(setSelection([]))
@@ -39,33 +46,33 @@ const Search = () => {
   return (
     <>
       <style>
-        {`.poopybutthead .bp3-menu { max-height: 24rem; overflow: auto }`}
+        {`.poopybutthead .bp3-menu { max-height: 24rem; overflow: auto; background: ${Colors.background} }`}
       </style>
-      <div
-        className="absolute mw5-ns left-2-ns top-1 left-1 right-1 pa0 z-2"
-        elevation={Elevation.ZERO}
-      >
+      <div className="absolute mw6-ns left-2-ns top-1 left-1 right-1 pa0 z-2">
         <Select
           items={options}
           selectedItem={selectedItem}
-          fill={true}
+          activeItem={selectedItem}
           itemRenderer={itemRenderer}
           itemPredicate={itemPredicate}
           inputValueRenderer={inputValueRenderer}
           onItemSelect={handleSelect}
           resetOnClose={true}
           resetOnSelect={true}
-          placeholder="Search…"
           inputProps={{
-            // leftIcon: 'search',
+            leftIcon: 'search',
             large: true,
             rightElement:
               selection.length > 0 ? (
                 <ClearButton onClick={handleDeselect} />
-              ) : null
+              ) : null,
+            style: {
+              background: Colors.background,
+              color: Colors.foreground
+            }
           }}
           popoverProps={{
-            popoverClassName: 'poopybutthead',
+            popoverClassName: 'poopybutthead overflow-hidden',
             targetClassName: 'w-100',
             position: Position.BOTTOM_LEFT,
             minimal: true

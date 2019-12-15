@@ -1,16 +1,19 @@
 import * as React from 'react'
 import { useState, useContext } from 'react'
 import * as data from 'app/data/headphones.json'
-import { scaleLinear, color } from 'd3'
+import { scaleLinear, color, interpolateHcl, easeCubicInOut } from 'd3'
+import Colors from 'app/colors'
 
 import { Context, setSelection } from 'app/store'
 
 import DeckGL, {
   COORDINATE_SYSTEM,
+  TRANSITION_EVENTS,
   LineLayer,
   TextLayer,
   PolygonLayer,
-  OrthographicView
+  OrthographicView,
+  LinearInterpolator
 } from 'deck.gl'
 
 const WIDTH = window.innerWidth
@@ -35,13 +38,8 @@ const scales = {
     .clamp(true),
   c: scaleLinear()
     .domain([30, 15, 0, -15, -30])
-    .range([
-      'rgb(28, 96, 159)',
-      'rgb(108, 180, 215)',
-      'rgb(216, 216, 216)',
-      'rgb(248, 135, 57)',
-      'rgb(220, 75, 4)'
-    ])
+    .range([Colors.positive, Colors.foreground, Colors.negative])
+    .interpolate(interpolateHcl)
 }
 data.lines = data
   .map(({ name, position, pairs }) =>
@@ -94,67 +92,13 @@ const textLayer = new TextLayer({
   pickable: true,
   _subLayerProps: {
     characters: { alphaCutoff: 0 }
-  }
+  },
+  getColor: () => Colors.foregroundArray
 })
-
-// const overlayLayer =
-//   selection.length &&
-//   new PolygonLayer({
-//     id: 'overlay',
-//     coordinateSystem: COORDINATE_SYSTEM.IDENTITY,
-//     data: [
-//       [
-//         [-1.5, -1.5],
-//         [-1.5, 1.5],
-//         [1.5, 1.5],
-//         [1.5, -1.5],
-//         [-1.5, -1.5]
-//       ]
-//     ],
-//     getPolygon: (d) => d,
-//     filled: true,
-//     stroked: false,
-//     getFillColor: [255, 255, 255],
-//     opacity: 0.5,
-//     pickable: true,
-//     onClick: handleDeselect
-//   })
-// const selectionLineLayer =
-//   selection.length &&
-//   new LineLayer({
-//     id: 'selection-line',
-//     coordinateSystem: COORDINATE_SYSTEM.IDENTITY,
-//     data: selection.lines,
-//     getSourcePosition: (d) => d.position[0],
-//     getTargetPosition: (d) => d.position[1],
-//     getColor: [255, 128, 0],
-//     getWidth: 1,
-//     widthMinPixels: 2,
-//     widthMaxPixels: 2
-//   })
-// const selectionTextLayer =
-//   selection.length &&
-//   new TextLayer({
-//     id: 'selection-text',
-//     coordinateSystem: COORDINATE_SYSTEM.IDENTITY,
-//     data: selection.texts,
-//     sizeUnits: 'meters',
-//     sizeScale: 0.0012,
-//     fontFamily: '-apple-system, sans-serif',
-//     getPosition: (d) => d.position,
-//     getText: (d) => d.name,
-//     getColor: [255, 128, 0],
-//     getTextAnchor: 'start',
-//     getAlignmentBaseline: 'center',
-//     getSize: 1,
-//     sizeMinPixels: 0,
-//     sizeMaxPixels: 16
-//   })
 
 const layerFilter = ({ layer, viewport }) => {
   return layer.id.match('text') && viewport.zoom < 11 ? false : true
 }
-const layers = [lineLayer, textLayer]
 const views = [
   new OrthographicView({
     id: 'view',
@@ -163,25 +107,110 @@ const views = [
 ]
 
 const Map = () => {
-  // const [{ selection, data }, dispatch] = useContext(Context)
+  const [{ selection }, dispatch] = useContext(Context)
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE)
-  const [isHovered, setIsHovered] = useState(false)
+  const [previous, setPrevious] = useState(null)
 
-  const handleViewStateChange = ({ viewState }) => setViewState(viewState)
-  // const handleDeselect = () => dispatch(setSelection([]))
+  const handleViewStateChange = ({ viewState }) => {
+    setViewState(viewState)
+    setPrevious(selection)
+  }
+  const handleDeselect = () => dispatch(setSelection([]))
   // const getCursor = ({ isDragging }) =>
   //   isDragging ? 'move' : isHovered ? 'pointer' : 'default'
+
+  const _viewState =
+    selection.length && previous !== selection
+      ? {
+          ...viewState,
+          target: selection[0].position,
+          zoom: Math.max(viewState.zoom, 12.5),
+          transitionDuration: 1200,
+          transitionEasing: easeCubicInOut,
+          transitionInterpolator: new LinearInterpolator(['zoom', 'target']),
+          transitionInterruption: TRANSITION_EVENTS.BREAK
+        }
+      : viewState
+
+  const overlayLayer =
+    selection.length &&
+    new PolygonLayer({
+      id: 'overlay',
+      coordinateSystem: COORDINATE_SYSTEM.IDENTITY,
+      data: [
+        [
+          [-1.5, -1.5],
+          [-1.5, 1.5],
+          [1.5, 1.5],
+          [1.5, -1.5],
+          [-1.5, -1.5]
+        ]
+      ],
+      getPolygon: (d) => d,
+      filled: true,
+      stroked: false,
+      getFillColor: Colors.backgroundArray,
+      opacity: 0.5,
+      pickable: true,
+      onClick: handleDeselect
+    })
+  const selectionLineLayer =
+    selection.length &&
+    new LineLayer({
+      id: 'selection-line',
+      coordinateSystem: COORDINATE_SYSTEM.IDENTITY,
+      data: selection.lines,
+      getSourcePosition: (d) => d.position[0],
+      getTargetPosition: (d) => d.position[1],
+      getColor: Colors.activeArray,
+      getWidth: 1,
+      widthMinPixels: 2,
+      widthMaxPixels: 2
+    })
+  const selectionTextLayer =
+    selection.length &&
+    new TextLayer({
+      id: 'selection-text',
+      coordinateSystem: COORDINATE_SYSTEM.IDENTITY,
+      data: selection.texts,
+      sizeUnits: 'meters',
+      sizeScale: 0.0012,
+      fontFamily: '-apple-system, sans-serif',
+      getPosition: (d) => d.position,
+      getText: (d) => d.name,
+      getColor: Colors.activeArray,
+      getTextAnchor: 'start',
+      getAlignmentBaseline: 'center',
+      getSize: 1,
+      sizeMinPixels: 0,
+      sizeMaxPixels: 16
+    })
+
+  const layers = [
+    lineLayer,
+    textLayer,
+    overlayLayer,
+    selectionLineLayer,
+    selectionTextLayer
+  ]
 
   return (
     <DeckGL
       layerFilter={layerFilter}
       layers={layers}
       views={views}
-      viewState={viewState}
+      viewState={_viewState}
       onViewStateChange={handleViewStateChange}
-      // getCursor={getCursor}
     />
   )
 }
 
 export default Map
+
+// ...deckgl.viewState.view,
+// zoom: Math.max(deckgl.viewState.view.zoom, 8),
+// target: [...selection.position, 0],
+// transitionDuration: 600,
+// transitionEasing: d3.easeCubicInOut,
+// transitionInterpolator: new deck.LinearInterpolator(['zoom', 'target']),
+// transitionInterruption: deck.TRANSITION_EVENTS.BREAK
